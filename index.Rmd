@@ -5,19 +5,11 @@ output: html_document
 
 ### Introduction
 
-An introduction of the problem domain and a description of the variable(s) you are choosing to analyze (and why!)
+The issue of disproportionate representation of communities of color, particularly Latinx individuals, in the U.S. prison system has garnered significant attention. This paper analyzes imprisonment trends data from the Vera Institute of Justice. The research delves into U.S. jail and prison population figures for Latinx and White individuals to ascertain the Latinx-to-White imprisonment ratio and Latinx incarceration rates.
 
 ### Summary Information
 
-Write a summary paragraph of findings that includes the 5 values calculated from your summary information R script
-
-These will likely be calculated using your DPLYR skills, answering questions such as: 
-
-- What is the average value of my variable across all the counties (in the current year)?
-- Where is my variable the highest / lowest?
-- How much has my variable change over the last N years?
-
-Feel free to calculate and report values that you find relevant. Again, remember that the purpose is to think about how these measure of incarceration vary by race.
+Within the realm of incarceration, California (CA) holds a dubious distinction, leading in the number of incarcerated individuals among both the Black and Latinx communities, tallying 1,877,980 and 2,464,531 respectively. This indicates a significant overrepresentation of these demographics within the prison system. Moreover, the District of Columbia (DC) emerges with a pronounced Latinx-to-White incarceration ratio for jail populations, notably at 1.316, underscoring disparities in the justice system. Conversely, Vermont (VT) stands out with the absence of any Latinx inmates, portraying a sharp contrast in incarceration demographics. Additionally, New Mexico (NM) showcases the highest ratio of Black jail population count to White jail population count, indicative of systemic issues in incarceration practices. It's noteworthy that across the examined time period, there is a prevailing downward trend in the incarceration rates across all racial groups, suggesting potential shifts or reforms within the criminal justice landscape.
 
 ### The Dataset
 
@@ -32,40 +24,445 @@ What are possible limitations or problems with this data?   (at least 200 words)
 
 ### Trends Over Time Chart
 
-Include a chart. Make sure to describe why you included the chart, and what patterns emerged
+This bar graph illustrates the total incarcerated Latinx population in the top three states from 1970 to the present, showing a marked increase beginning in the mid-1980s and peaking in the early 2000s, followed by a decline from 2010 onwards. The y-axis represents the total incarceration number, and the x-axis represents the years, with each bar color representing a different state, likely California, Texas, and Florida. California exhibits the highest numbers, particularly during the 1990s and early 2000s, potentially due to legislative measures such as the "Three Strikes" law enacted in 1994. Texas also shows significant increases during this period. These trends highlight the importance of analyzing policy impacts and demographic shifts over time to understand changes in incarceration rates among the Latinx population.
 
-The first chart that you will create and include will show the trend over time of your variable/topic. Think carefully about what you want to communicate to your user (you may have to find relevant trends in the dataset first!). Here are some requirements to help guide your design:
+```{r, echo = FALSE, message = FALSE}
 
-- Show more than one, but fewer than ~10 trends
-  - This may mean showing the same measure for different locations or different racial groups. Think carefully about a meaningful comparison of locations (e.g., the top 10 counties in a state, top 10 states, etc.)
-- You must have clear x and y axis labels
-- The chart needs a clear title 
-- You need a legend for your different line colors and a clear legend title
+library(mapproj)
+library(dplyr)
+library(maps)
+library(usdata)
+library(ggplot2)
+library(plotly)
 
-When we say "clear" or "human readable" titles and labels, that means that you should not just display the variable name.
+incarceration_trends <- read.csv("incarceration_trends.csv")
 
-Here's an example of how to run an R script inside an RMarkdown file:
+# The state with the highest ratio of Latinx jail population count to White jail population count
+state_highest_jail_race_ratio <- incarceration_trends %>% 
+  select(state, white_jail_pop, latinx_jail_pop) %>% 
+  group_by(state) %>% 
+  summarise(white_jail_pop = sum(white_jail_pop, na.rm = TRUE),
+            latinx_jail_pop = sum(latinx_jail_pop, na.rm = TRUE)) %>% 
+  mutate(rate = latinx_jail_pop / white_jail_pop) %>% 
+  filter(rate == max(rate, na.rm = TRUE)) %>% 
+  pull(state)
 
-``````{r, echo = FALSE, code = readLines("chart1_example.R")}
+# The state with the highest ratio of Latinx prison population count to White prison population count
+state_highest_prison_race_ratio <- incarceration_trends %>% 
+  select(state, white_prison_pop, latinx_prison_pop) %>% 
+  group_by(state) %>% 
+  summarise(white_prison_pop = sum(white_prison_pop, na.rm = TRUE),
+            latinx_prison_pop = sum(latinx_prison_pop, na.rm = TRUE)) %>% 
+  mutate(rate = latinx_prison_pop / white_prison_pop) %>% 
+  filter(rate == max(rate, na.rm = TRUE)) %>% 
+  pull(state)
+
+# The state with the highest total incarceration count of Latinx individuals
+state_highest_latinx_incarceration <- incarceration_trends %>% 
+  select(state, latinx_jail_pop, latinx_prison_pop) %>% 
+  replace(is.na(.), 0) %>% 
+  mutate(total_latinx_incarceration = latinx_jail_pop + latinx_prison_pop) %>% 
+  group_by(state) %>% 
+  summarise(total_incarceration = sum(total_latinx_incarceration, na.rm = TRUE)) %>% 
+  filter(total_incarceration == max(total_incarceration, na.rm = TRUE)) %>% 
+  pull(state)
+
+# The highest total incarceration count of Latinx individuals in a state
+highest_latinx_incarceration_count <- incarceration_trends %>% 
+  select(state, latinx_jail_pop, latinx_prison_pop) %>% 
+  replace(is.na(.), 0) %>% 
+  mutate(total_latinx_incarceration = latinx_jail_pop + latinx_prison_pop) %>% 
+  group_by(state) %>% 
+  summarise(total_incarceration = sum(total_latinx_incarceration, na.rm = TRUE)) %>% 
+  filter(total_incarceration == max(total_incarceration, na.rm = TRUE)) %>% 
+  summarise(rounded_total = round(total_incarceration)) %>% 
+  pull(rounded_total)
+
+# Percentage change of Latinx jail incarceration over the last 10 years (2008-2018)
+latinx_jail_change_year <- incarceration_trends %>% 
+  filter(year %in% c(2008, 2018)) %>% 
+  select(year, latinx_jail_pop) %>% 
+  group_by(year) %>% 
+  summarise(latinx_jail_pop = sum(latinx_jail_pop, na.rm = TRUE)) %>% 
+  summarise(change = (latinx_jail_pop[2] - latinx_jail_pop[1]) / latinx_jail_pop[1]) %>% 
+  mutate(change_decimal = round(change, 2)) %>% 
+  pull(change_decimal)
+
+# Percentage change of Latinx prison incarceration over the last 10 years (2006-2016)
+latinx_prison_change_year <- incarceration_trends %>% 
+  filter(year %in% c(2006, 2016)) %>% 
+  select(year, latinx_prison_pop) %>% 
+  group_by(year) %>% 
+  summarise(latinx_prison_pop = sum(latinx_prison_pop, na.rm = TRUE)) %>% 
+  summarise(change = (latinx_prison_pop[2] - latinx_prison_pop[1]) / latinx_prison_pop[1]) %>% 
+  mutate(change_decimal = round(change, 2)) %>% 
+  pull(change_decimal)
+
+# Trends over time chart
+top3_state_latinx_incarceration <- incarceration_trends %>% 
+  select(year, state, latinx_jail_pop, latinx_prison_pop) %>%
+  replace(is.na(.), 0) %>% 
+  mutate(total_latinx_incarceration = latinx_jail_pop + latinx_prison_pop) %>%
+  group_by(year, state) %>% 
+  summarise(total_incarceration = sum(total_latinx_incarceration, na.rm = TRUE)) %>% 
+  filter(state %in% c("CA", "TX", "NY"))
+
+trends_over_time <- plot_ly(
+  data = top3_state_latinx_incarceration,
+  x = ~year,
+  y = ~total_incarceration,
+  color = ~state,
+  type = "bar",
+  width = 1000
+) %>% 
+  layout(
+    title = "Total Incarcerated Latinx Population in Top 3 States over the Years",
+    xaxis = list(title = "Year"),
+    yaxis = list(title = "Total Incarceration Number")
+  )
 ```
 
 ### Variable Comparison Chart
 
-Include a chart. Make sure to describe why you included the chart, and what patterns emerged
+```{r, echo = FALSE, message = FALSE}
 
-The second chart that you will create and include will show how two different (continuous) variables are related to one another. Again, think carefully about what such a comparison means and what you want to communicate to your user (you may have to find relevant trends in the dataset first!). Here are some requirements to help guide your design:
+library(mapproj)
+library(dplyr)
+library(maps)
+library(usdata)
+library(ggplot2)
+library(plotly)
 
-- You must have clear x and y axis labels
-- The chart needs a clear title 
-- If you choose to add a color encoding (not required), you need a legend for your different color and a clear legend title
+incarceration_trends <- read.csv("incarceration_trends.csv")
+
+# The state with the highest ratio of Latinx jail population count to White jail population count
+state_highest_jail_race_ratio <- incarceration_trends %>% 
+  select(state, white_jail_pop, latinx_jail_pop) %>% 
+  group_by(state) %>% 
+  summarise(white_jail_pop = sum(white_jail_pop, na.rm = TRUE),
+            latinx_jail_pop = sum(latinx_jail_pop, na.rm = TRUE)) %>% 
+  mutate(rate = latinx_jail_pop / white_jail_pop) %>% 
+  filter(rate == max(rate, na.rm = TRUE)) %>% 
+  pull(state)
+
+# The state with the highest ratio of Latinx prison population count to White prison population count
+state_highest_prison_race_ratio <- incarceration_trends %>% 
+  select(state, white_prison_pop, latinx_prison_pop) %>% 
+  group_by(state) %>% 
+  summarise(white_prison_pop = sum(white_prison_pop, na.rm = TRUE),
+            latinx_prison_pop = sum(latinx_prison_pop, na.rm = TRUE)) %>% 
+  mutate(rate = latinx_prison_pop / white_prison_pop) %>% 
+  filter(rate == max(rate, na.rm = TRUE)) %>% 
+  pull(state)
+
+# The state with the highest total incarceration count of Latinx individuals
+state_highest_latinx_incarceration <- incarceration_trends %>% 
+  select(state, latinx_jail_pop, latinx_prison_pop) %>% 
+  replace(is.na(.), 0) %>% 
+  mutate(total_latinx_incarceration = latinx_jail_pop + latinx_prison_pop) %>% 
+  group_by(state) %>% 
+  summarise(total_incarceration = sum(total_latinx_incarceration, na.rm = TRUE)) %>% 
+  filter(total_incarceration == max(total_incarceration, na.rm = TRUE)) %>% 
+  pull(state)
+
+# The highest total incarceration count of Latinx individuals in a state
+highest_latinx_incarceration_count <- incarceration_trends %>% 
+  select(state, latinx_jail_pop, latinx_prison_pop) %>% 
+  replace(is.na(.), 0) %>% 
+  mutate(total_latinx_incarceration = latinx_jail_pop + latinx_prison_pop) %>% 
+  group_by(state) %>% 
+  summarise(total_incarceration = sum(total_latinx_incarceration, na.rm = TRUE)) %>% 
+  filter(total_incarceration == max(total_incarceration, na.rm = TRUE)) %>% 
+  summarise(rounded_total = round(total_incarceration)) %>% 
+  pull(rounded_total)
+
+# Percentage change of Latinx jail incarceration over the last 10 years (2008-2018)
+latinx_jail_change_year <- incarceration_trends %>% 
+  filter(year %in% c(2008, 2018)) %>% 
+  select(year, latinx_jail_pop) %>% 
+  group_by(year) %>% 
+  summarise(latinx_jail_pop = sum(latinx_jail_pop, na.rm = TRUE)) %>% 
+  summarise(change = (latinx_jail_pop[2] - latinx_jail_pop[1]) / latinx_jail_pop[1]) %>% 
+  mutate(change_decimal = round(change, 2)) %>% 
+  pull(change_decimal)
+
+# Percentage change of Latinx prison incarceration over the last 10 years (2006-2016)
+latinx_prison_change_year <- incarceration_trends %>% 
+  filter(year %in% c(2006, 2016)) %>% 
+  select(year, latinx_prison_pop) %>% 
+  group_by(year) %>% 
+  summarise(latinx_prison_pop = sum(latinx_prison_pop, na.rm = TRUE)) %>% 
+  summarise(change = (latinx_prison_pop[2] - latinx_prison_pop[1]) / latinx_prison_pop[1]) %>% 
+  mutate(change_decimal = round(change, 2)) %>% 
+  pull(change_decimal)
+
+# Variable comparison chart
+latinx_white_incarceration <- incarceration_trends %>% 
+  select(year, latinx_jail_pop, latinx_prison_pop, white_jail_pop, white_prison_pop) %>%
+  replace(is.na(.), 0) %>% 
+  mutate(latinx_sum = latinx_jail_pop + latinx_prison_pop, 
+         white_sum = white_jail_pop + white_prison_pop) %>% 
+  group_by(year) %>%
+  summarise(latinx_sum = sum(latinx_sum, na.rm = TRUE), white_sum = sum(white_sum, na.rm = TRUE))
+
+variable_comparison <- plot_ly(
+  data = latinx_white_incarceration,
+  x = ~year,
+  y = ~latinx_sum,
+  name = "Latinx",
+  type = 'scatter', 
+  mode = 'lines',
+  width = 800
+) %>%
+  add_trace(
+    y = ~white_sum,
+    name = "White",
+    mode = 'lines'
+  ) %>% 
+  layout(
+    title = "Latinx vs. White Total Incarceration Count over the Years",
+    xaxis = list(title = "Year"),
+    yaxis = list(title = "Total Incarceration Number")
+  )
+```
+This line graph compares the total incarceration count between Latinx and white populations from 1970 to the present, with the y-axis representing the total incarceration number and the x-axis representing the years. The blue line represents the Latinx population, and the orange line represents the white population. The graph reveals that the total incarceration number for white individuals has consistently been higher than for Latinx individuals, with both groups experiencing significant increases starting in the 1980s and peaking around 2010, followed by a decline. The sharper decline in the white population's incarceration rate may indicate differential impacts of criminal justice reforms. This graph underscores the importance of ongoing research into demographic trends and policy effects on incarceration rates, contributing to a more comprehensive understanding of these dynamics.
+
 
 ### Map
 
-Include a chart. Make sure to describe why you included the chart, and what patterns emerged
+```{r, echo = FALSE, message = FALSE}
 
-The last chart that you will create and include will show how a variable is distributed geographically. Again, think carefully about what such a comparison means and what you want to communicate to your user (you may have to find relevant trends in the dataset first!). Here are some requirements to help guide your design:
+library(mapproj)
+library(dplyr)
+library(maps)
+library(usdata)
+library(ggplot2)
+library(plotly)
 
-- Your map needs a title
-- Your color scale needs a legend with a clear label
-- Use a map based coordinate system to set the aspect ratio of your map
+incarceration_trends <- read.csv("incarceration_trends.csv")
 
+# The state with the highest ratio of Latinx jail population count to White jail population count
+state_highest_jail_race_ratio <- incarceration_trends %>% 
+  select(state, white_jail_pop, latinx_jail_pop) %>% 
+  group_by(state) %>% 
+  summarise(white_jail_pop = sum(white_jail_pop, na.rm = TRUE),
+            latinx_jail_pop = sum(latinx_jail_pop, na.rm = TRUE)) %>% 
+  mutate(rate = latinx_jail_pop / white_jail_pop) %>% 
+  filter(rate == max(rate, na.rm = TRUE)) %>% 
+  pull(state)
+
+# The state with the highest ratio of Latinx prison population count to White prison population count
+state_highest_prison_race_ratio <- incarceration_trends %>% 
+  select(state, white_prison_pop, latinx_prison_pop) %>% 
+  group_by(state) %>% 
+  summarise(white_prison_pop = sum(white_prison_pop, na.rm = TRUE),
+            latinx_prison_pop = sum(latinx_prison_pop, na.rm = TRUE)) %>% 
+  mutate(rate = latinx_prison_pop / white_prison_pop) %>% 
+  filter(rate == max(rate, na.rm = TRUE)) %>% 
+  pull(state)
+
+# The state with the highest total incarceration count of Latinx individuals
+state_highest_latinx_incarceration <- incarceration_trends %>% 
+  select(state, latinx_jail_pop, latinx_prison_pop) %>% 
+  replace(is.na(.), 0) %>% 
+  mutate(total_latinx_incarceration = latinx_jail_pop + latinx_prison_pop) %>% 
+  group_by(state) %>% 
+  summarise(total_incarceration = sum(total_latinx_incarceration, na.rm = TRUE)) %>% 
+  filter(total_incarceration == max(total_incarceration, na.rm = TRUE)) %>% 
+  pull(state)
+
+# The highest total incarceration count of Latinx individuals in a state
+highest_latinx_incarceration_count <- incarceration_trends %>% 
+  select(state, latinx_jail_pop, latinx_prison_pop) %>% 
+  replace(is.na(.), 0) %>% 
+  mutate(total_latinx_incarceration = latinx_jail_pop + latinx_prison_pop) %>% 
+  group_by(state) %>% 
+  summarise(total_incarceration = sum(total_latinx_incarceration, na.rm = TRUE)) %>% 
+  filter(total_incarceration == max(total_incarceration, na.rm = TRUE)) %>% 
+  summarise(rounded_total = round(total_incarceration)) %>% 
+  pull(rounded_total)
+
+# Percentage change of Latinx jail incarceration over the last 10 years (2008-2018)
+latinx_jail_change_year <- incarceration_trends %>% 
+  filter(year %in% c(2008, 2018)) %>% 
+  select(year, latinx_jail_pop) %>% 
+  group_by(year) %>% 
+  summarise(latinx_jail_pop = sum(latinx_jail_pop, na.rm = TRUE)) %>% 
+  summarise(change = (latinx_jail_pop[2] - latinx_jail_pop[1]) / latinx_jail_pop[1]) %>% 
+  mutate(change_decimal = round(change, 2)) %>% 
+  pull(change_decimal)
+
+# Percentage change of Latinx prison incarceration over the last 10 years (2006-2016)
+latinx_prison_change_year <- incarceration_trends %>% 
+  filter(year %in% c(2006, 2016)) %>% 
+  select(year, latinx_prison_pop) %>% 
+  group_by(year) %>% 
+  summarise(latinx_prison_pop = sum(latinx_prison_pop, na.rm = TRUE)) %>% 
+  summarise(change = (latinx_prison_pop[2] - latinx_prison_pop[1]) / latinx_prison_pop[1]) %>% 
+  mutate(change_decimal = round(change, 2)) %>% 
+  pull(change_decimal)
+
+# Trends over time chart
+top3_state_latinx_incarceration <- incarceration_trends %>% 
+  select(year, state, latinx_jail_pop, latinx_prison_pop) %>%
+  replace(is.na(.), 0) %>% 
+  mutate(total_latinx_incarceration = latinx_jail_pop + latinx_prison_pop) %>%
+  group_by(year, state) %>% 
+  summarise(total_incarceration = sum(total_latinx_incarceration, na.rm = TRUE)) %>% 
+  filter(state %in% c("CA", "TX", "NY"))
+
+trends_over_time <- plot_ly(
+  data = top3_state_latinx_incarceration,
+  x = ~year,
+  y = ~total_incarceration,
+  color = ~state,
+  type = "bar",
+  width = 1000
+) %>% 
+  layout(
+    title = "Total Incarcerated Latinx Population in Top 3 States over the Years",
+    xaxis = list(title = "Year"),
+    yaxis = list(title = "Total Incarceration Number")
+  )
+```
+
+### Variable Comparison Chart
+
+```{r, echo = FALSE, message = FALSE}
+
+library(mapproj)
+library(dplyr)
+library(maps)
+library(usdata)
+library(ggplot2)
+library(plotly)
+
+incarceration_trends <- read.csv("incarceration_trends.csv")
+
+# The state with the highest ratio of Latinx jail population count to White jail population count
+state_highest_jail_race_ratio <- incarceration_trends %>% 
+  select(state, white_jail_pop, latinx_jail_pop) %>% 
+  group_by(state) %>% 
+  summarise(white_jail_pop = sum(white_jail_pop, na.rm = TRUE),
+            latinx_jail_pop = sum(latinx_jail_pop, na.rm = TRUE)) %>% 
+  mutate(rate = latinx_jail_pop / white_jail_pop) %>% 
+  filter(rate == max(rate, na.rm = TRUE)) %>% 
+  pull(state)
+
+# The state with the highest ratio of Latinx prison population count to White prison population count
+state_highest_prison_race_ratio <- incarceration_trends %>% 
+  select(state, white_prison_pop, latinx_prison_pop) %>% 
+  group_by(state) %>% 
+  summarise(white_prison_pop = sum(white_prison_pop, na.rm = TRUE),
+            latinx_prison_pop = sum(latinx_prison_pop, na.rm = TRUE)) %>% 
+  mutate(rate = latinx_prison_pop / white_prison_pop) %>% 
+  filter(rate == max(rate, na.rm = TRUE)) %>% 
+  pull(state)
+
+# The state with the highest total incarceration count of Latinx individuals
+state_highest_latinx_incarceration <- incarceration_trends %>% 
+  select(state, latinx_jail_pop, latinx_prison_pop) %>% 
+  replace(is.na(.), 0) %>% 
+  mutate(total_latinx_incarceration = latinx_jail_pop + latinx_prison_pop) %>% 
+  group_by(state) %>% 
+  summarise(total_incarceration = sum(total_latinx_incarceration, na.rm = TRUE)) %>% 
+  filter(total_incarceration == max(total_incarceration, na.rm = TRUE)) %>% 
+  pull(state)
+
+# The highest total incarceration count of Latinx individuals in a state
+highest_latinx_incarceration_count <- incarceration_trends %>% 
+  select(state, latinx_jail_pop, latinx_prison_pop) %>% 
+  replace(is.na(.), 0) %>% 
+  mutate(total_latinx_incarceration = latinx_jail_pop + latinx_prison_pop) %>% 
+  group_by(state) %>% 
+  summarise(total_incarceration = sum(total_latinx_incarceration, na.rm = TRUE)) %>% 
+  filter(total_incarceration == max(total_incarceration, na.rm = TRUE)) %>% 
+  summarise(rounded_total = round(total_incarceration)) %>% 
+  pull(rounded_total)
+
+# Percentage change of Latinx jail incarceration over the last 10 years (2008-2018)
+latinx_jail_change_year <- incarceration_trends %>% 
+  filter(year %in% c(2008, 2018)) %>% 
+  select(year, latinx_jail_pop) %>% 
+  group_by(year) %>% 
+  summarise(latinx_jail_pop = sum(latinx_jail_pop, na.rm = TRUE)) %>% 
+  summarise(change = (latinx_jail_pop[2] - latinx_jail_pop[1]) / latinx_jail_pop[1]) %>% 
+  mutate(change_decimal = round(change, 2)) %>% 
+  pull(change_decimal)
+
+# Percentage change of Latinx prison incarceration over the last 10 years (2006-2016)
+latinx_prison_change_year <- incarceration_trends %>% 
+  filter(year %in% c(2006, 2016)) %>% 
+  select(year, latinx_prison_pop) %>% 
+  group_by(year) %>% 
+  summarise(latinx_prison_pop = sum(latinx_prison_pop, na.rm = TRUE)) %>% 
+  summarise(change = (latinx_prison_pop[2] - latinx_prison_pop[1]) / latinx_prison_pop[1]) %>% 
+  mutate(change_decimal = round(change, 2)) %>% 
+  pull(change_decimal)
+
+# Calculate the Latinx-to-White incarceration ratio by state
+state_latinx_white_ratio <- incarceration_trends %>% 
+  select(state, latinx_jail_pop, latinx_prison_pop, white_jail_pop, white_prison_pop) %>% 
+  replace(is.na(.), 0) %>% 
+  group_by(state) %>% 
+  mutate(latinx_sum = latinx_jail_pop + latinx_prison_pop, 
+         white_sum = white_jail_pop + white_prison_pop) %>% 
+  summarise(latinx_sum = sum(latinx_sum), white_sum = sum(white_sum)) %>% 
+  mutate(rate = latinx_sum / white_sum) %>% 
+  select(-latinx_sum, -white_sum) %>% 
+  arrange(-rate) %>% 
+  slice(-c(1)) # Assuming you want to remove the first row (if it's an outlier or not needed)
+
+# Prepare state shape data and merge with the incarceration ratio
+state_shape <- map_data("state") %>%
+  rename(state = region)
+
+state_shape <- state_shape %>%
+  mutate(state = tolower(state),
+         state = state2abbr(state))
+
+# Merge state shape data with the calculated incarceration ratio
+state_shape <- state_shape %>%
+  left_join(state_latinx_white_ratio, by = "state")
+
+# Plot the map
+map <- ggplot(state_shape) +
+  geom_polygon(
+    mapping = aes(x = long, y = lat, group = group, fill = rate),
+    color = "white",
+    size = 0.1
+  ) +
+  coord_map() + 
+  scale_fill_continuous(low = "#132B43", high = "Red", na.value = "grey50") +
+  labs(fill = "Ratio") +
+  ggtitle("Latinx-to-White Incarceration Ratio") +
+  theme_bw() +
+  theme(
+    axis.line = element_blank(), 
+    axis.text = element_blank(), 
+    axis.ticks = element_blank(), 
+    axis.title = element_blank(), 
+    plot.background = element_blank(), 
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(), 
+    panel.border = element_blank() 
+  )
+```
+
+This map visualizes the Latinx-to-White incarceration ratio across 
+the United States, with the ratio indicating the number of Latinx 
+individuals incarcerated for every white individual, represented by a
+color gradient from dark red (lower ratio) to light red (higher 
+ratio). States such as California, Texas, and New York exhibit the 
+highest ratios, suggesting notable differences in incarceration rates
+between Latinx and white populations, potentially influenced by 
+demographic factors and law enforcement practices. In contrast, 
+states with darker shades of red, such as those in the Midwest and 
+South, display lower ratios, possibly due to smaller Latinx 
+populations or differing judicial practices. This map is a valuable 
+tool for identifying regional variations in incarceration ratios, 
+assisting in the examination of demographic and policy factors 
+affecting these disparities.
+
+
+print(incar)
